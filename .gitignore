@@ -43,6 +43,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
+*.py,cover
 .hypothesis/
 .pytest_cache/
 
@@ -55,9 +56,26 @@ coverage.xml
 # mypy
 .mypy_cache/
 .dmypy.json
+dmypy.json
 
-# VS Code
+# Pyre type checker
+.pyre/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# VS Code & IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
 # Data & outputs
 data/output/

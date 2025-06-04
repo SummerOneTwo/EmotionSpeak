@@ -52,6 +52,103 @@ EmotionSpeak/
    ```
 
 ## 快速开始
+
+### 使用 Makefile 命令
+```bash
+# 查看所有可用命令
+make help
+
+# 安装依赖
+make install
+
+# 运行主程序
+make run
+
+# 运行演示
+make demo
+
+# 运行测试
+make test
+
+# 代码格式化
+make format
+
+# 代码风格检查
+make lint
+
+# 生成测试覆盖率报告
+make test-cov
+```
+
+### 直接运行
+```bash
+# 运行主程序
+python main.py
+
+# 运行演示程序
+python scripts/demo.py
+```
+
+## 开发指南
+
+### 代码风格
+项目使用以下工具确保代码质量：
+- **Black**: 代码格式化
+- **Flake8**: 代码风格检查
+- **pytest**: 单元测试
+- **pytest-cov**: 测试覆盖率
+
+### 提交代码前检查
+```bash
+# 运行所有检查
+make check
+```
+
+### 测试
+```bash
+# 运行所有测试
+make test
+
+# 运行特定测试文件
+pytest tests/test_sentiment_analyzer.py
+
+# 生成详细的覆盖率报告
+make test-cov
+```
+
+## API 文档
+详细的 API 文档请参考 [API文档.md](docs/API文档.md)
+
+## 用户指南
+使用说明请参考 [用户指南.md](docs/用户指南.md)
+
+## 依赖说明
+- **pyttsx3**: 文本转语音引擎
+- **textblob**: 英文文本处理和情感分析
+- **nltk**: 自然语言处理工具包
+- **jieba**: 中文分词
+- **pygame**: 音频播放
+- **wordcloud**: 词云生成
+- **matplotlib**: 数据可视化
+- **pillow**: 图像处理
+
+## 贡献指南
+1. Fork 本项目
+2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 开启 Pull Request
+
+## 许可证
+本项目采用 MIT 许可证 - 详情请参阅 [LICENSE](LICENSE) 文件
+
+## 作者
+- 开发者姓名 - [GitHub](https://github.com/username)
+
+## 致谢
+感谢所有为本项目提供帮助和建议的朋友们！
+
+## 快速开始
 ```bash
 make run
 ```

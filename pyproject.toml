@@ -19,6 +19,7 @@ jieba = ">=0.42.1"
 
 [tool.poetry.dev-dependencies]
 pytest = ">=7.0.0"
+pytest-cov = ">=4.0.0"
 black = ">=22.0.0"
 flake8 = ">=5.0.0"
 
@@ -33,3 +34,11 @@ target-version = ['py38']
 [tool.flake8]
 max-line-length = 88
 exclude = [".git", "__pycache__", "build", "dist", "data/output"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--verbose --cov=src --cov-report=html --cov-report=term-missing"
+minversion = "6.0"
