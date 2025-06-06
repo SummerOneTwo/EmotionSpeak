@@ -46,6 +46,10 @@ EmotionSpeak/
    python3 -m venv venv
    source venv/bin/activate
    ```
+   ```powershell
+   python -m venv venv
+   .\venv\Scripts\activate
+   ```
 3. **安装依赖**
    ```bash
    pip install -r requirements.txt

@@ -79,6 +79,7 @@ venv.bak/
 
 # Data & outputs
 data/output/
+logs/
 
 # System files
 .DS_Store
