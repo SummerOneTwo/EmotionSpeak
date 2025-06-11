@@ -1,56 +1,62 @@
 """
-文本预处理模块
+文本处理模块
 """
 
-from typing import List, Dict, Any
-import re
-from textblob import TextBlob
-from jieba import analyse
 import jieba
+import snownlp
+from typing import Dict, List
 
 
 class TextProcessor:
-    """文本处理器，支持中英文混合文本的分句、标点检测、关键词提取和清理。"""
+    """文本处理器"""
 
     def __init__(self):
-        pass
+        """初始化文本处理器"""
+        # 加载停用词
+        self.stopwords = set()
+        try:
+            with open('data/stopwords.txt', 'r', encoding='utf-8') as f:
+                self.stopwords = set(line.strip() for line in f)
+        except FileNotFoundError:
+            pass
 
-    def clean_text(self, text: str) -> str:
-        """清理文本，去除多余空格和特殊字符，保留中英文、数字和常用标点。"""
-        text = re.sub(r'([!?])', r' \1 ', text)
-        text = re.sub(r"[^\w\u4e00-\u9fff\s!?]", ' ', text)
-        text = re.sub(r"\s+", ' ', text)
-        text = text.replace('! !', '!!')
-        text = re.sub(r"\s*!!", ' !!', text)
-        return text.strip()
+    def process(self, text: str) -> Dict:
+        """处理文本"""
+        # 分词
+        words = list(jieba.cut(text))
 
-    def split_sentences(self, text: str) -> List[str]:
-        """分割句子，支持中英文混合。"""
-        eng_segs = re.split(r'(?<=[.!?])\s+', text)
-        raw_segs = []
-        for seg in eng_segs:
-            parts = re.split(r'(?<=[。！？；])', seg)
-            raw_segs.extend(parts)
-        cleaned_segs = []
-        for seg in raw_segs:
-            s = self.clean_text(seg)
-            if s:
-                cleaned_segs.append(s)
-        return cleaned_segs
+        # 去除停用词
+        words = [w for w in words if w not in self.stopwords]
 
-    def detect_punctuation(self, sentence: str) -> dict:
-        """检测句子中的常见标点数量。"""
+        # 情感分析
+        sentiment = snownlp.SnowNLP(text)
+
+        # 提取关键词
+        keywords = self._extract_keywords(words)
+
         return {
-            'exclamations': sentence.count('!'),
-            'questions': sentence.count('?'),
-            'ellipses': sentence.count('...'),
-            'commas': sentence.count(','),
+            'words': words,
+            'sentiment': {'score': sentiment.sentiments, 'emotion': self._get_emotion(sentiment.sentiments)},
+            'keywords': keywords,
         }
 
-    def extract_keywords(self, text: str) -> List[str]:
-        """提取关键词：英文用TextBlob，中文用jieba。"""
-        cleaned = self.clean_text(text)
-        if re.search(r'[a-zA-Z]', cleaned) and not re.search(r'[\u4e00-\u9fff]', cleaned):
-            blob = TextBlob(cleaned)
-            return [word for word, tag in blob.tags if tag.startswith('NN')][:10]
-        return analyse.extract_tags(cleaned, topK=10)
+    def _extract_keywords(self, words: List[str]) -> List[str]:
+        """提取关键词"""
+        # 简单的词频统计
+        word_freq = {}
+        for word in words:
+            if len(word) > 1:  # 只考虑长度大于1的词
+                word_freq[word] = word_freq.get(word, 0) + 1
+
+        # 按频率排序
+        keywords = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
+        return [word for word, freq in keywords[:5]]  # 返回前5个关键词
+
+    def _get_emotion(self, score: float) -> str:
+        """根据情感分数获取情感标签"""
+        if score > 0.6:
+            return 'happy'
+        elif score < 0.4:
+            return 'sad'
+        else:
+            return 'neutral'

@@ -3,132 +3,93 @@ TTS引擎模块
 """
 
 import os
-import pyttsx3
-from typing import Dict, List
+import edge_tts
+import asyncio
+from pathlib import Path
+import logging
+import traceback
+
+logger = logging.getLogger(__name__)
 
 
-class TTSEngine:
-    def __init__(self, config_path="config/tts_config.json"):  # Assuming config might be used
+class EdgeTTSEngine:
+    """Edge TTS引擎"""
+
+    def __init__(self):
         """初始化TTS引擎"""
-        self.engine = pyttsx3.init()
-        # Attempt to load voice_id from a potential config or use a default
-        self.default_rate = self.engine.getProperty('rate')
-        self.default_volume = self.engine.getProperty('volume')
-        # Pitch is not a standard pyttsx3 property, but some engines might support it via setProperty
-        self.default_pitch = 1.0  # Placeholder
+        try:
+            self.voice = "zh-CN-XiaoxiaoNeural"
+            self.output_dir = Path("data/audio")
+            self.output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"TTS引擎初始化完成，输出目录: {self.output_dir}")
+        except Exception as e:
+            logger.error(f"TTS引擎初始化失败: {str(e)}", exc_info=True)
+            raise
 
-    def get_available_voices(self) -> List[Dict[str, str]]:
-        """获取可用的语音列表"""
-        voices = self.engine.getProperty('voices')
-        return [{"id": v.id, "name": v.name, "lang": v.languages} for v in voices]
+    async def _synthesize_async(self, text: str, emotion: str = "neutral") -> str:
+        """异步合成语音"""
+        try:
+            # 设置语音风格
+            style_map = {"happy": "cheerful", "sad": "sad", "angry": "angry", "neutral": "general"}
+            style = style_map.get(emotion, "general")
 
-    def set_voice_properties(
-        self, rate: int = None, volume: float = None, pitch: float = None, voice_id: str = None
-    ):
-        """设置语速、音量、音高（如果支持）、可选voice_id"""
-        if voice_id:
-            self.engine.setProperty('voice', voice_id)
+            # 设置语速和音调
+            rate = "+0%"
+            pitch = "+0Hz"
+            if emotion == "happy":
+                rate = "+20%"
+                pitch = "+2Hz"
+            elif emotion == "sad":
+                rate = "-20%"
+                pitch = "-2Hz"
+            elif emotion == "angry":
+                rate = "+30%"
+                pitch = "+4Hz"
 
-        if rate is not None:
-            self.engine.setProperty('rate', rate)
-        if volume is not None:
-            self.engine.setProperty('volume', max(0.0, min(volume, 1.0)))
-        if pitch is not None:
-            # Pitch is not a standard pyttsx3 property. This is an attempt and might not work.
-            # Some engines might allow setting pitch via a specific property name.
-            # For example, on SAPI5, it might be possible to set it via a COM interface,
-            # but pyttsx3 doesn't expose this directly in a cross-platform way.
-            # We'll store it and it could be used if a specific engine driver supports it.
-            try:
-                # This is a speculative attempt; 'pitch' is not a standard property.
-                self.engine.setProperty('pitch', pitch)
-            except Exception:
-                pass
+            logger.info(f"开始合成语音: text={text}, emotion={emotion}, rate={rate}, pitch={pitch}")
 
-    def speak_with_emotion(self, text: str, sentiment: Dict[str, float], config: Dict = None):
-        """根据情感调整并朗读文本，使用配置（如果提供）"""
-        polarity = sentiment.get('polarity', 0)
-        classification = sentiment.get('classification', 'neutral')
+            # 生成输出文件名
+            output_file = self.output_dir / f"{hash(text)}_{emotion}.mp3"
+            logger.info(f"输出文件: {output_file}")
 
-        # Use provided config or defaults
-        tts_config = config.get("tts", {}) if config else {}
-        base_rate = tts_config.get("rate", self.default_rate)
-        base_volume = tts_config.get("volume", self.default_volume)
-        base_pitch = tts_config.get("pitch", self.default_pitch)  # Target pitch
+            # 创建通信对象
+            communicate = edge_tts.Communicate(text, self.voice, rate=rate, pitch=pitch)
 
-        # Adjust parameters based on emotion
-        # These are example adjustments, can be refined
-        if classification == 'positive':
-            rate_factor, volume_factor, pitch_factor = 1.1, 1.1, 1.1
-        elif classification == 'negative':
-            rate_factor, volume_factor, pitch_factor = 0.9, 0.9, 0.9
-        else:  # neutral
-            rate_factor, volume_factor, pitch_factor = 1.0, 1.0, 1.0
+            # 合成语音
+            await communicate.save(str(output_file))
 
-        adjusted_rate = int(base_rate * rate_factor)
-        adjusted_volume = max(0.0, min(1.0, base_volume * volume_factor))
-        adjusted_pitch = base_pitch * pitch_factor
+            # 验证文件是否生成成功
+            if not output_file.exists():
+                raise Exception(f"语音文件生成失败: {output_file}")
 
-        self.set_voice_properties(rate=adjusted_rate, volume=adjusted_volume, pitch=adjusted_pitch)
+            file_size = output_file.stat().st_size
+            if file_size == 0:
+                raise Exception(f"生成的语音文件为空: {output_file}")
 
-        self.engine.say(text)
-        self.engine.runAndWait()
+            logger.info(f"语音合成完成: {output_file}, 文件大小: {file_size} 字节")
+            return output_file.name  # 只返回文件名
 
-        # Reset to defaults after speaking to avoid carry-over effects
-        self.set_voice_properties(
-            rate=self.default_rate, volume=self.default_volume, pitch=self.default_pitch
-        )
+        except Exception as e:
+            logger.error(f"语音合成失败: {str(e)}", exc_info=True)
+            raise Exception(f"语音合成失败: {str(e)}\n{traceback.format_exc()}")
 
-    def save_audio(self, text: str, filename: str, sentiment: Dict[str, float] = None, config: Dict = None):
-        """将朗读内容保存为音频文件，可带情感"""
-        if sentiment and isinstance(sentiment, dict):
-            # Apply emotion-based properties before saving
-            polarity = sentiment.get('polarity', 0)
-            classification = sentiment.get('classification', 'neutral')
+    def synthesize(self, text: str, emotion: str = "neutral") -> str:
+        """合成语音"""
+        try:
+            # 运行异步任务
+            output_file = asyncio.run(self._synthesize_async(text, emotion))
 
-            tts_config = config.get("tts", {}) if config else {}
-            base_rate = tts_config.get("rate", self.default_rate)
-            base_volume = tts_config.get("volume", self.default_volume)
-            base_pitch = tts_config.get("pitch", self.default_pitch)
+            # 验证返回的文件名
+            if not output_file:
+                raise Exception("语音合成返回的文件名为空")
 
-            if classification == 'positive':
-                rate_factor, volume_factor, pitch_factor = 1.1, 1.1, 1.1
-            elif classification == 'negative':
-                rate_factor, volume_factor, pitch_factor = 0.9, 0.9, 0.9
-            else:
-                rate_factor, volume_factor, pitch_factor = 1.0, 1.0, 1.0
+            # 验证文件是否存在
+            full_path = self.output_dir / output_file
+            if not full_path.exists():
+                raise Exception(f"语音文件不存在: {full_path}")
 
-            self.set_voice_properties(
-                rate=int(base_rate * rate_factor),
-                volume=max(0.0, min(1.0, base_volume * volume_factor)),
-                pitch=base_pitch * pitch_factor,
-            )
+            return output_file
 
-        # Ensure directory exists (but handle case where filename has no directory)
-        dir_name = os.path.dirname(filename)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
-
-        # pyttsx3 saves to a temporary WAV first if not on NSSpeechSynthesizer (macOS)
-        # Forcing .wav extension for broader compatibility if pyttsx3 doesn't handle it.
-        if not filename.lower().endswith(".wav"):
-            # Some engines might only support WAV.
-            # To be safe, we can save as wav then convert, or just enforce wav.
-            # For now, let pyttsx3 handle it, but be mindful.
-            pass
-
-        self.engine.save_to_file(text, filename)
-        self.engine.runAndWait()
-
-        # Reset to defaults
-        self.set_voice_properties(
-            rate=self.default_rate, volume=self.default_volume, pitch=self.default_pitch
-        )
-        return filename
-
-
-# Remove the standalone speak function if all functionality is within the class
-# def speak(text: str, emotion: str = None):
-#     """按指定情感合成语音。"""
-#     # TODO: 实现
-#     pass
+        except Exception as e:
+            logger.error(f"语音合成失败: {str(e)}", exc_info=True)
+            raise Exception(f"语音合成失败: {str(e)}\n{traceback.format_exc()}")

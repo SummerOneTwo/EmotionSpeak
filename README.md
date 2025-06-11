@@ -1,180 +1,79 @@
-# **EmotionSpeak**
+# EmotionSpeak - 智能情感语音合成系统
 
-### Rationale
-- **Emotion**: Highlights the project's core feature of emotional analysis using NLP to adjust TTS output for expressive reading.
-- **Speak**: Emphasizes the Text-to-Speech (TTS) functionality, which converts text into spoken language with dynamic tone and cadence.
-- **Fit for Purpose**: The name is concise, memorable, and reflects the integration of emotional analysis and speech synthesis, aligning with the project's innovative aspects and the course's focus on AI and Python programming.
+EmotionSpeak 是一个基于 Python 的智能情感语音合成系统，能够分析文本情感并生成相应的语音。
 
----
+## 功能特点
 
-## 项目简介
-EmotionSpeak 是一个集文本情感分析、语音合成（TTS）、音频播放与可视化为一体的工具，适用于中文和英文文本。
+- 文本情感分析
+- 智能语音合成
+- 支持多种情感表达
+- 基于微软 Edge TTS 服务
+- 完全免费，无需 API 密钥
 
-## 主要功能
-- 文本预处理与分词
-- 情感分析（支持中英文）
-- 语音合成与播放
-- 词云与情感趋势可视化
-- 简洁易用的图形界面
+## 系统要求
 
-## 目录结构
+- Python 3.8 或更高版本
+- Windows 操作系统
+
+## 安装步骤
+
+1. 克隆仓库：
+```bash
+git clone https://github.com/yourusername/EmotionSpeak.git
+cd EmotionSpeak
+```
+
+2. 创建虚拟环境：
+```bash
+python -m venv .venv
+```
+
+3. 激活虚拟环境：
+```bash
+# Windows
+.venv\Scripts\activate
+```
+
+4. 安装依赖：
+```bash
+pip install -r requirements.txt
+```
+
+## 使用方法
+
+1. 启动应用：
+```bash
+python main.py
+```
+
+2. 在浏览器中访问：
+```
+http://127.0.0.1:5000
+```
+
+3. 输入文本，点击"分析文本"按钮进行情感分析
+4. 点击"合成语音"按钮生成语音
+
+## 项目结构
+
 ```
 EmotionSpeak/
-├── src/
-│   ├── core/
-│   ├── gui/
-│   ├── visualization/
-│   └── utils/
-├── tests/
-├── data/
-├── docs/
-├── scripts/
-├── requirements.txt
-├── pyproject.toml
-├── main.py
-└── .gitignore
+├── src/                    # 源代码目录
+│   ├── core/              # 核心功能模块
+│   └── webapp/            # Web应用模块
+├── data/                  # 数据目录
+│   ├── audio/            # 音频文件
+│   └── models/           # 模型文件
+├── logs/                  # 日志目录
+├── main.py               # 主程序入口
+├── requirements.txt      # 依赖列表
+└── README.md            # 项目说明
 ```
-
-## 环境配置
-1. **克隆项目**
-   ```bash
-   git clone <repo-url>
-   cd EmotionSpeak
-   ```
-2. **创建虚拟环境**
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
-   ```powershell
-   python -m venv venv
-   .\venv\Scripts\activate
-   ```
-3. **安装依赖**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## 快速开始
-
-### 使用 Makefile 命令
-```bash
-# 查看所有可用命令
-make help
-
-# 安装依赖
-make install
-
-# 运行主程序
-make run
-
-# 运行演示
-make demo
-
-# 运行测试
-make test
-
-# 代码格式化
-make format
-
-# 代码风格检查
-make lint
-
-# 生成测试覆盖率报告
-make test-cov
-```
-
-### 直接运行
-```bash
-# 运行主程序
-python main.py
-
-# 运行演示程序
-python scripts/demo.py
-```
-
-## 开发指南
-
-### 代码风格
-项目使用以下工具确保代码质量：
-- **Black**: 代码格式化
-- **Flake8**: 代码风格检查
-- **pytest**: 单元测试
-- **pytest-cov**: 测试覆盖率
-
-### 提交代码前检查
-```bash
-# 运行所有检查
-make check
-```
-
-### 测试
-```bash
-# 运行所有测试
-make test
-
-# 运行特定测试文件
-pytest tests/test_sentiment_analyzer.py
-
-# 生成详细的覆盖率报告
-make test-cov
-```
-
-## API 文档
-详细的 API 文档请参考 [API文档.md](docs/API文档.md)
-
-## 用户指南
-使用说明请参考 [用户指南.md](docs/用户指南.md)
-
-## 依赖说明
-- **pyttsx3**: 文本转语音引擎
-- **textblob**: 英文文本处理和情感分析
-- **nltk**: 自然语言处理工具包
-- **jieba**: 中文分词
-- **pygame**: 音频播放
-- **wordcloud**: 词云生成
-- **matplotlib**: 数据可视化
-- **pillow**: 图像处理
-
-## 贡献指南
-1. Fork 本项目
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 开启 Pull Request
 
 ## 许可证
-本项目采用 MIT 许可证 - 详情请参阅 [LICENSE](LICENSE) 文件
+
+MIT License
 
 ## 作者
-- 开发者姓名 - [GitHub](https://github.com/username)
 
-## 致谢
-感谢所有为本项目提供帮助和建议的朋友们！
-
-## 快速开始
-```bash
-make run
-```
-或
-```bash
-python main.py
-```
-
-## 代码格式化与检查
-```bash
-make format
-make lint
-```
-
-## 测试
-```bash
-make test
-```
-
-## 文档
-- [API文档](docs/API文档.md)
-- [用户指南](docs/用户指南.md)
-
-## 许可证
-MIT License
+[您的名字]
