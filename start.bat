@@ -1,17 +1,38 @@
 @echo off
-chcp 65001
+chcp 65001 > nul
 
-echo 启动 EmotionSpeak...
+echo [INFO] Starting EmotionSpeak...
 
-:: 检查虚拟环境是否存在
+:: Check if virtual environment exists
 if not exist ".venv" (
-    echo 虚拟环境不存在，正在创建...
+    echo [INFO] Virtual environment not found, creating...
     call venv.bat create
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to create virtual environment
+        pause
+        exit /b 1
+    )
     call venv.bat install
+    if %errorlevel% neq 0 (
+        echo [ERROR] Failed to install dependencies
+        pause
+        exit /b 1
+    )
 )
 
-:: 激活虚拟环境并启动应用
+:: Activate virtual environment and start application
 call .venv\Scripts\activate.bat
+if %errorlevel% neq 0 (
+    echo [ERROR] Failed to activate virtual environment
+    pause
+    exit /b 1
+)
+
 python main.py
+if %errorlevel% neq 0 (
+    echo [ERROR] Application failed to start
+    pause
+    exit /b 1
+)
 
 pause
