@@ -3,271 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EmotionSpeak - 智能情感语音合成</title>
-    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <title>EmotionSpeak - 智能情感语音合成系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary-color: #4a90e2;
-            --secondary-color: #f5f5f5;
-            --text-color: #333;
-            --border-color: #ddd;
-        }
-
-        body {
-            font-family: "Microsoft YaHei", sans-serif;
-            background-color: var(--secondary-color);
-            color: var(--text-color);
-        }
-
-        .navbar {
-            background-color: var(--primary-color);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-
-        .navbar-brand {
-            color: white !important;
-            font-weight: bold;
-        }
-
-        .main-container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-        }
-
-        .card {
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-
-        .card-header {
-            background-color: white;
-            border-bottom: 1px solid var(--border-color);
-            padding: 1rem;
-        }
-
-        .btn-primary {
-            background-color: var(--primary-color);
-            border: none;
-            padding: 0.5rem 1.5rem;
-        }
-
-        .btn-primary:hover {
-            background-color: #357abd;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin: 1rem 0;
-        }
-
-        .loading i {
-            color: var(--primary-color);
-            font-size: 2rem;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        #resultArea {
-            display: none;
-        }
-
-        .sentiment-score {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: var(--primary-color);
-        }
-
-        .keyword-tag {
-            display: inline-block;
-            padding: 0.3rem 0.8rem;
-            margin: 0.2rem;
-            background-color: var(--primary-color);
-            color: white;
-            border-radius: 15px;
-            font-size: 0.9rem;
-        }
-
-        #audioPlayer {
-            width: 100%;
-            margin-top: 1rem;
-        }
-    </style>
+    <script src="https://cdn.bootcdn.net/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script src="https://cdn.bootcdn.net/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="#">EmotionSpeak</a>
-        </div>
-    </nav>
+    <div class="app-container">
+        <header class="app-header">
+            <h1><i class="fas fa-microphone-alt"></i> EmotionSpeak</h1>
+            <p class="subtitle">智能情感语音合成系统</p>
+        </header>
 
-    <div class="main-container">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="mb-0">文本分析</h5>
-            </div>
-            <div class="card-body">
-                <div class="mb-3">
-                    <label for="inputText" class="form-label">输入文本</label>
-                    <textarea class="form-control" id="inputText" rows="4" placeholder="请输入要分析的文本..."></textarea>
-                </div>
-                <button class="btn btn-primary" onclick="analyzeText()">
-                    <i class="fas fa-magic"></i> 分析文本
-                </button>
-                <button class="btn btn-primary ms-2" onclick="synthesizeSpeech()">
-                    <i class="fas fa-volume-up"></i> 合成语音
-                </button>
-            </div>
-        </div>
-
-        <div class="loading" id="loading">
-            <i class="fas fa-spinner"></i>
-            <p>处理中...</p>
-        </div>
-
-        <div id="resultArea" class="card">
-            <div class="card-header">
-                <h5 class="mb-0">分析结果</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6>情感分析</h6>
-                        <p>情感倾向：<span id="emotion" class="sentiment-score"></span></p>
-                        <p>情感得分：<span id="sentimentScore" class="sentiment-score"></span></p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6>关键词</h6>
-                        <div id="keywords"></div>
+        <main class="main-content">
+            <div class="input-section">
+                <div class="text-input-container">
+                    <textarea id="text-input" placeholder="请输入要分析的文本..."></textarea>
+                    <div class="input-actions">
+                        <button id="clear-btn" class="btn btn-icon" title="清空文本">
+                            <i class="fas fa-eraser"></i>
+                        </button>
+                        <button id="paste-btn" class="btn btn-icon" title="粘贴文本">
+                            <i class="fas fa-paste"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="mt-4">
-                    <h6>分词结果</h6>
-                    <div id="words"></div>
-                </div>
-                <div class="mt-4">
-                    <h6>语音合成</h6>
-                    <audio id="audioPlayer" controls></audio>
+                
+                <div class="action-buttons">
+                    <button id="analyze-btn" class="btn btn-primary">
+                        <i class="fas fa-chart-bar"></i> 分析情感
+                    </button>
+                    <button id="tts-btn" class="btn btn-secondary">
+                        <i class="fas fa-volume-up"></i> 语音合成
+                    </button>
+                    <button id="wordcloud-btn" class="btn btn-info">
+                        <i class="fas fa-cloud"></i> 生成词云
+                    </button>
                 </div>
             </div>
-        </div>
+
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <p>正在分析中...</p>
+            </div>
+
+            <div class="results-section">
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="analysis">情感分析</button>
+                    <button class="tab-btn" data-tab="wordcloud">词云图</button>
+                    <button class="tab-btn" data-tab="emotions">情感分布</button>
+                    <button class="tab-btn" data-tab="segmentation">分词分析</button>
+                </div>
+
+                <div class="tab-content">
+                    <div id="analysis-tab" class="tab-pane active">
+                        <div id="result-container" class="result-container"></div>
+                    </div>
+                    <div id="wordcloud-tab" class="tab-pane">
+                        <div id="wordcloud-container" class="chart-container"></div>
+                    </div>
+                    <div id="emotions-tab" class="tab-pane">
+                        <div id="emotions-chart" class="chart-container"></div>
+                    </div>
+                    <div id="segmentation-tab" class="tab-pane">
+                        <div id="segmentation-result" class="segmentation-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="audio-section">
+                <audio id="audio-player" controls>
+                    您的浏览器不支持音频播放
+                </audio>
+                <div class="audio-controls">
+                    <button id="download-audio" class="btn btn-icon" title="下载音频">
+                        <i class="fas fa-download"></i>
+                    </button>
+                    <button id="share-audio" class="btn btn-icon" title="分享音频">
+                        <i class="fas fa-share-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="app-footer">
+            <p>EmotionSpeak v2.0.0 | 基于深度学习的情感分析与语音合成系统</p>
+        </footer>
     </div>
 
-    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function showLoading() {
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('resultArea').style.display = 'none';
-        }
-
-        function hideLoading() {
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('resultArea').style.display = 'block';
-        }
-
-        function analyzeText() {
-            const text = document.getElementById('inputText').value;
-            if (!text) {
-                alert('请输入文本');
-                return;
-            }
-
-            showLoading();
-
-            fetch('/analyze', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ text: text })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // 更新情感分析结果
-                document.getElementById('emotion').textContent = data.sentiment.emotion;
-                document.getElementById('sentimentScore').textContent = 
-                    (data.sentiment.score * 100).toFixed(1) + '%';
-
-                // 更新关键词
-                const keywordsHtml = data.keywords.map(word => 
-                    `<span class="keyword-tag">${word}</span>`
-                ).join('');
-                document.getElementById('keywords').innerHTML = keywordsHtml;
-
-                // 更新分词结果
-                document.getElementById('words').textContent = data.words.join(' ');
-
-                hideLoading();
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('分析失败，请重试');
-                hideLoading();
-            });
-        }
-
-        function synthesizeSpeech() {
-            const text = document.getElementById('inputText').value;
-            if (!text) {
-                alert('请输入文本');
-                return;
-            }
-
-            showLoading();
-
-            // 获取当前情感状态
-            const emotion = document.getElementById('emotion').textContent || 'neutral';
-            console.log('合成语音:', { text, emotion }); // 添加调试日志
-
-            fetch('/tts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ 
-                    text: text,
-                    emotion: emotion
-                })
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('收到响应:', data); // 添加调试日志
-                if (data.error) {
-                    throw new Error(data.error);
-                }
-                const audioPlayer = document.getElementById('audioPlayer');
-                audioPlayer.src = `/audio/${data.audio}`;
-                audioPlayer.onerror = () => {
-                    console.error('音频加载失败');
-                    alert('音频加载失败，请重试');
-                    hideLoading();
-                };
-                audioPlayer.onloadeddata = () => {
-                    console.log('音频加载成功');
-                    audioPlayer.play();
-                    hideLoading();
-                };
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('语音合成失败: ' + error.message);
-                hideLoading();
-            });
-        }
-    </script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

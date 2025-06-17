@@ -1,38 +1,23 @@
 @echo off
-chcp 65001 > nul
+setlocal enabledelayedexpansion
 
-echo [INFO] Starting EmotionSpeak...
-
-:: Check if virtual environment exists
-if not exist ".venv" (
-    echo [INFO] Virtual environment not found, creating...
-    call venv.bat create
-    if %errorlevel% neq 0 (
-        echo [ERROR] Failed to create virtual environment
-        pause
-        exit /b 1
-    )
-    call venv.bat install
-    if %errorlevel% neq 0 (
-        echo [ERROR] Failed to install dependencies
-        pause
-        exit /b 1
-    )
+:: 检查虚拟环境
+if not exist "venv" (
+    echo Creating virtual environment...
+    python -m venv venv
 )
 
-:: Activate virtual environment and start application
-call .venv\Scripts\activate.bat
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to activate virtual environment
-    pause
-    exit /b 1
-)
+:: 激活虚拟环境
+call venv\Scripts\activate.bat
 
+:: 初始化项目环境（依赖安装、目录、.env等）
+echo Initializing project...
+python init.py setup
+
+:: 启动应用
+echo Starting application...
+start http://localhost:5000
 python main.py
-if %errorlevel% neq 0 (
-    echo [ERROR] Application failed to start
-    pause
-    exit /b 1
-)
 
-pause
+call venv\Scripts\deactivate.bat
+endlocal

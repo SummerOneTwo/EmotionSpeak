@@ -1,95 +1,124 @@
 """
-TTS引擎模块
+高级语音合成引擎模块
+支持基于情感分析结果的智能语音参数调整
 """
 
 import os
 import edge_tts
 import asyncio
 from pathlib import Path
-import logging
-import traceback
+from typing import Optional, Dict, Any, List
+from .sentiment_analysis import analyze_text_for_tts
+from .sentiment.analyzer import SentimentAnalyzer
+from .sentiment.base import BASIC_EMOTIONS, COMPOUND_EMOTIONS
 
-logger = logging.getLogger(__name__)
 
-
-class EdgeTTSEngine:
-    """Edge TTS引擎"""
-
+class TTSEngine:
+    """Text-to-Speech engine using Microsoft Edge TTS"""
+    
+    voice_map = {
+        '晓晓': 'zh-CN-XiaoxiaoNeural',
+        '云野': 'zh-CN-YunyeNeural',
+        '晓伊': 'zh-CN-XiaoyiNeural',
+        '云希': 'zh-CN-YunxiNeural',
+        '晓墨': 'zh-CN-XiaomoNeural',
+        '云泽': 'zh-CN-YunzeNeural'
+    }
+    
     def __init__(self):
-        """初始化TTS引擎"""
+        """Initialize TTS engine"""
+        self.output_dir = 'data/audio'
+        os.makedirs(self.output_dir, exist_ok=True)
+    
+    async def _synthesize_async(self, text: str, voice: str, output_file: str):
+        """Synthesize speech asynchronously"""
+        communicate = edge_tts.Communicate(text, voice)
+        await communicate.save(output_file)
+    
+    def synthesize(self, text: str, voice: str = '晓晓', output_file: str = None) -> str:
+        """Synthesize speech from text"""
+        if output_file is None:
+            output_file = os.path.join(self.output_dir, f'speech_{hash(text)}.mp3')
+        
+        asyncio.run(self._synthesize_async(text, self.voice_map.get(voice, 'zh-CN-XiaoxiaoNeural'), output_file))
+        return output_file
+    
+    def get_available_voices(self) -> dict:
+        """Get available voice mappings"""
+        return self.voice_map
+
+    def synthesize_with_emotion(self, text: str, auto_analyze: bool = True, output_file: str = None) -> str:
+        """根据情感分析结果自适应参数合成语音"""
         try:
-            self.voice = "zh-CN-XiaoxiaoNeural"
-            self.output_dir = Path("data/audio")
-            self.output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"TTS引擎初始化完成，输出目录: {self.output_dir}")
+            if auto_analyze:
+                analyzer = SentimentAnalyzer()
+                result = analyzer.analyze(text)
+                base_emotion = result['emotion']['base_emotion']['label']
+                intensity = result['intensity']['intensity_score']
+                compound_emotions = result['emotion'].get('compound_emotions', [])
+            else:
+                base_emotion = '中性'
+                intensity = 1.0
+                compound_emotions = []
+
+            # 参数映射
+            param_map = {
+                '喜悦':  {'voice': '晓晓', 'pitch': 1.2, 'rate': 1.1, 'style': 'cheerful'},
+                '悲伤':  {'voice': '云希', 'pitch': 0.9, 'rate': 0.9, 'style': 'sad'},
+                '愤怒':  {'voice': '云泽', 'pitch': 1.3, 'rate': 1.2, 'style': 'angry'},
+                '恐惧':  {'voice': '晓伊', 'pitch': 1.1, 'rate': 1.0, 'style': 'fearful'},
+                '惊讶':  {'voice': '晓晓', 'pitch': 1.2, 'rate': 1.2, 'style': 'excited'},
+                '厌恶':  {'voice': '云希', 'pitch': 0.8, 'rate': 0.9, 'style': 'disgusted'},
+                '信任':  {'voice': '云野', 'pitch': 1.0, 'rate': 1.0, 'style': 'calm'},
+                '期待':  {'voice': '晓伊', 'pitch': 1.1, 'rate': 1.1, 'style': 'hopeful'},
+                '中性':  {'voice': '晓晓', 'pitch': 1.0, 'rate': 1.0, 'style': 'general'}
+            }
+            # 复合情感优先
+            if compound_emotions:
+                comp = compound_emotions[0]['label']
+                if comp == '爱':
+                    param = {'voice': '云野', 'pitch': 1.1, 'rate': 1.05, 'style': 'affectionate'}
+                elif comp == '恨':
+                    param = {'voice': '云泽', 'pitch': 1.3, 'rate': 1.2, 'style': 'angry'}
+                elif comp == '焦虑':
+                    param = {'voice': '晓伊', 'pitch': 1.0, 'rate': 1.15, 'style': 'anxious'}
+                elif comp == '内疚':
+                    param = {'voice': '云希', 'pitch': 0.8, 'rate': 0.9, 'style': 'sad'}
+                elif comp == '骄傲':
+                    param = {'voice': '晓晓', 'pitch': 1.2, 'rate': 1.1, 'style': 'proud'}
+                elif comp == '羞耻':
+                    param = {'voice': '晓伊', 'pitch': 0.9, 'rate': 0.95, 'style': 'shy'}
+                else:
+                    param = param_map.get(base_emotion, param_map['中性'])
+            else:
+                param = param_map.get(base_emotion, param_map['中性'])
+            # 根据强度微调
+            param['pitch'] *= intensity
+            param['rate'] *= intensity
+            voice = self.voice_map.get(param['voice'], 'zh-CN-XiaoxiaoNeural')
+            pitch = param['pitch']
+            rate = param['rate']
+            style = param['style']
+            if output_file is None:
+                output_file = os.path.join(self.output_dir, f'speech_{hash(text)}.mp3')
+            try:
+                asyncio.run(self._synthesize_async_with_params(text, voice, output_file, pitch, rate, style))
+            except Exception as e:
+                raise RuntimeError(f"TTS合成失败: {str(e)}")
+            # 合成后自动删除音频文件
+            try:
+                if os.path.exists(output_file):
+                    os.remove(output_file)
+            except Exception:
+                pass
+            return output_file
         except Exception as e:
-            logger.error(f"TTS引擎初始化失败: {str(e)}", exc_info=True)
             raise
 
-    async def _synthesize_async(self, text: str, emotion: str = "neutral") -> str:
-        """异步合成语音"""
-        try:
-            # 设置语音风格
-            style_map = {"happy": "cheerful", "sad": "sad", "angry": "angry", "neutral": "general"}
-            style = style_map.get(emotion, "general")
+    async def _synthesize_async_with_params(self, text: str, voice: str, output_file: str, pitch: float, rate: float, style: str):
+        """支持参数自适应的异步合成"""
+        communicate = edge_tts.Communicate(text, voice, rate=f"{rate}", pitch=f"{pitch}", style=style)
+        await communicate.save(output_file)
 
-            # 设置语速和音调
-            rate = "+0%"
-            pitch = "+0Hz"
-            if emotion == "happy":
-                rate = "+20%"
-                pitch = "+2Hz"
-            elif emotion == "sad":
-                rate = "-20%"
-                pitch = "-2Hz"
-            elif emotion == "angry":
-                rate = "+30%"
-                pitch = "+4Hz"
-
-            logger.info(f"开始合成语音: text={text}, emotion={emotion}, rate={rate}, pitch={pitch}")
-
-            # 生成输出文件名
-            output_file = self.output_dir / f"{hash(text)}_{emotion}.mp3"
-            logger.info(f"输出文件: {output_file}")
-
-            # 创建通信对象
-            communicate = edge_tts.Communicate(text, self.voice, rate=rate, pitch=pitch)
-
-            # 合成语音
-            await communicate.save(str(output_file))
-
-            # 验证文件是否生成成功
-            if not output_file.exists():
-                raise Exception(f"语音文件生成失败: {output_file}")
-
-            file_size = output_file.stat().st_size
-            if file_size == 0:
-                raise Exception(f"生成的语音文件为空: {output_file}")
-
-            logger.info(f"语音合成完成: {output_file}, 文件大小: {file_size} 字节")
-            return output_file.name  # 只返回文件名
-
-        except Exception as e:
-            logger.error(f"语音合成失败: {str(e)}", exc_info=True)
-            raise Exception(f"语音合成失败: {str(e)}\n{traceback.format_exc()}")
-
-    def synthesize(self, text: str, emotion: str = "neutral") -> str:
-        """合成语音"""
-        try:
-            # 运行异步任务
-            output_file = asyncio.run(self._synthesize_async(text, emotion))
-
-            # 验证返回的文件名
-            if not output_file:
-                raise Exception("语音合成返回的文件名为空")
-
-            # 验证文件是否存在
-            full_path = self.output_dir / output_file
-            if not full_path.exists():
-                raise Exception(f"语音文件不存在: {full_path}")
-
-            return output_file
-
-        except Exception as e:
-            logger.error(f"语音合成失败: {str(e)}", exc_info=True)
-            raise Exception(f"语音合成失败: {str(e)}\n{traceback.format_exc()}")
+# 为了兼容性，保留别名
+AdvancedTTSEngine = TTSEngine
