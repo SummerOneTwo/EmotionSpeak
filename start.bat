@@ -8,8 +8,8 @@ if not exist "venv" (
     python -m venv venv
 )
 
-:: 检查并安装 Microsoft C++ Build Tools（静默安装）
-where cl >nul 2>nul
+:: 检查 C++ 编译器
+cl -help >nul 2>nul
 if errorlevel 1 (
     echo Installing Microsoft C++ Build Tools...
     powershell -Command "Start-Process 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -ArgumentList '/quiet', '/norestart', '--add', 'Microsoft.VisualStudio.Workload.VCTools' -Wait"
