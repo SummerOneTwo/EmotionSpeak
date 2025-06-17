@@ -22,6 +22,21 @@ EmotionSpeak 是一个基于深度学习的高级情感分析与智能语音合�
 - pip 20.0+
 - Git
 
+### 1.1 Microsoft C++ Build Tools 安装教程（依赖安装失败时必看）
+
+**自动安装（推荐）**
+1. 直接运行 `start.bat`，如未安装 C++ 编译环境，会自动弹出安装界面。
+2. 按照弹出的安装器界面提示，点击“继续”或“安装”，等待安装完成。
+3. 安装完成后关闭安装器窗口，重新运行 `start.bat`。
+
+**手动安装**
+1. 打开浏览器，访问：[Microsoft Visual C++ Build Tools 官方下载页面](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. 点击“下载 Build Tools”按钮，下载 `vs_BuildTools.exe` 安装器。
+3. 双击运行安装器，勾选“使用C++的桌面开发”（Desktop development with C++），点击“安装”。
+4. 安装完成后关闭窗口，重新运行 `start.bat`。
+
+如遇问题可参考[微软官方文档](https://learn.microsoft.com/zh-cn/cpp/windows/latest-supported-vc-redist?view=msvc-170)或B站等平台的图文教程。
+
 ### 2. 一键启动（推荐）
 
 > **注意：**
