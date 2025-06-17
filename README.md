@@ -24,6 +24,9 @@ EmotionSpeak 是一个基于深度学习的高级情感分析与智能语音合�
 
 ### 2. 一键启动（推荐）
 
+> **注意：**
+> - 如果依赖安装过程中出现 `Microsoft Visual C++ 14.0 or greater is required` 等编译环境相关报错，请先安装 [Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)，安装完成后重新运行脚本。
+
 > **强烈推荐：直接运行 `start.bat`，自动完成所有初始化、依赖安装、资源下载和服务启动！**
 
 ```bat
