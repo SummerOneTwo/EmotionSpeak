@@ -134,6 +134,20 @@ class SentimentAnalyzer:
             
             # 分析情感强度
             intensity = self._analyze_intensity(text)
+            # 保证 intensity 字段结构完整
+            intensity_score = intensity.get('intensity_score', 0.0)
+            def get_intensity_level(score):
+                if score >= 0.8:
+                    return '高'
+                elif score >= 0.5:
+                    return '中'
+                else:
+                    return '低'
+            intensity_level = intensity.get('intensity_level', get_intensity_level(intensity_score))
+            intensity = {
+                'intensity_score': intensity_score,
+                'intensity_level': intensity_level
+            }
             
             # 使用分词器进行分词
             words_info = self.word_tokenizer.tokenize(text)
@@ -143,6 +157,56 @@ class SentimentAnalyzer:
             
             # 分析情感关键词
             emotion_keywords = self._analyze_emotion_keywords(text)
+            
+            # === 语音参数映射 ===
+            tts_param_map = {
+                '喜悦':  {'voice': '晓晓', 'pitch': 1.2, 'speed': 1.1, 'style': 'cheerful'},
+                '悲伤':  {'voice': '云希', 'pitch': 0.9, 'speed': 0.9, 'style': 'sad'},
+                '愤怒':  {'voice': '云泽', 'pitch': 1.3, 'speed': 1.2, 'style': 'angry'},
+                '恐惧':  {'voice': '晓伊', 'pitch': 1.1, 'speed': 1.0, 'style': 'fearful'},
+                '惊讶':  {'voice': '晓晓', 'pitch': 1.2, 'speed': 1.2, 'style': 'excited'},
+                '厌恶':  {'voice': '云希', 'pitch': 0.8, 'speed': 0.9, 'style': 'disgusted'},
+                '信任':  {'voice': '云野', 'pitch': 1.0, 'speed': 1.0, 'style': 'calm'},
+                '期待':  {'voice': '晓伊', 'pitch': 1.1, 'speed': 1.1, 'style': 'hopeful'},
+                '中性':  {'voice': '晓晓', 'pitch': 1.0, 'speed': 1.0, 'style': 'general'}
+            }
+            # 复合情感优先
+            voice_param = None
+            if compound_emotions:
+                comp = compound_emotions[0]['label']
+                if comp == '爱':
+                    voice_param = {'voice': '云野', 'pitch': 1.1, 'speed': 1.05, 'style': 'affectionate'}
+                elif comp == '恨':
+                    voice_param = {'voice': '云泽', 'pitch': 1.3, 'speed': 1.2, 'style': 'angry'}
+                elif comp == '焦虑':
+                    voice_param = {'voice': '晓伊', 'pitch': 1.0, 'speed': 1.15, 'style': 'anxious'}
+                elif comp == '内疚':
+                    voice_param = {'voice': '云希', 'pitch': 0.8, 'speed': 0.9, 'style': 'sad'}
+                elif comp == '骄傲':
+                    voice_param = {'voice': '晓晓', 'pitch': 1.2, 'speed': 1.1, 'style': 'proud'}
+                elif comp == '羞耻':
+                    voice_param = {'voice': '晓伊', 'pitch': 0.9, 'speed': 0.95, 'style': 'shy'}
+            if not voice_param:
+                base_label = '正面' if base_emotion_idx == 1 else '负面'
+                # 只映射正面/负面为中性，其他映射
+                if base_label == '正面':
+                    voice_param = tts_param_map.get('喜悦', tts_param_map['中性'])
+                elif base_label == '负面':
+                    voice_param = tts_param_map.get('悲伤', tts_param_map['中性'])
+                else:
+                    voice_param = tts_param_map['中性']
+            # 强度微调
+            voice_param = voice_param.copy()
+            voice_param['pitch'] *= intensity_score
+            voice_param['speed'] *= intensity_score
+            # 统一字段
+            voice_info = {
+                'voice': voice_param['voice'],
+                'pitch': round(voice_param['pitch'], 2),
+                'speed': round(voice_param['speed'], 2),
+                'volume': 1.0,
+                'style': voice_param['style']
+            }
             
             return {
                 'text': text,
@@ -165,12 +229,7 @@ class SentimentAnalyzer:
                     'context_type': '',
                     'keywords': [{'text': w['word']} for w in words_info] if words_info else []
                 },
-                'voice': {
-                    'pitch': 1.0,
-                    'speed': 1.0,
-                    'volume': 1.0,
-                    'style': ''
-                }
+                'voice': voice_info
             }
             
         except Exception as e:

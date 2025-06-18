@@ -126,14 +126,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 显示分析结果
     function displayResults(data) {
         const { emotion, intensity, context, voice } = data;
-        
-        // 创建结果HTML
+        // 兼容后端结构
+        const dominantEmotion = emotion.base_emotion?.label || '未知';
+        const confidence = emotion.base_emotion?.confidence ?? 0;
+        const sentimentScore = emotion.base_emotion?.score ?? 0;
+        function getIntensityLevel(score) {
+            if (score >= 0.8) return '高';
+            if (score >= 0.5) return '中';
+            return '低';
+        }
         let html = `
             <div class="main-sentiment">
                 <div class="dominant-emotion">
-                    <h3>主导情感: ${getEmotionName(emotion.dominant_emotion)}</h3>
-                    <div class="confidence-score">置信度: ${(emotion.confidence * 100).toFixed(1)}%</div>
-                    <div class="sentiment-score">情感得分: ${(emotion.sentiment_score * 100).toFixed(1)}%</div>
+                    <h3>主导情感: ${getEmotionName(dominantEmotion)}</h3>
+                    <div class="confidence-score">置信度: ${(confidence * 100).toFixed(1)}%</div>
+                    <div class="sentiment-score">情感得分: ${(sentimentScore * 100).toFixed(1)}%</div>
                 </div>
             </div>
             
@@ -159,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="intensity-section">
                 <h3>情感强度</h3>
                 <div class="intensity-info">
-                    <p>强度级别: ${intensity.intensity_level}</p>
+                    <p>强度级别: ${getIntensityLevel(intensity.intensity_score)}</p>
                     <p>强度得分: ${(intensity.intensity_score * 100).toFixed(1)}%</p>
                 </div>
             </div>
@@ -186,7 +193,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `;
-        
         elements.resultContainer.innerHTML = html;
         elements.resultContainer.style.display = 'block';
     }
