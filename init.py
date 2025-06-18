@@ -1,113 +1,134 @@
-#!/usr/bin/env python3
-"""
-EmotionSpeak 项目初始化和演示脚本
-"""
-
 import os
 import sys
 import subprocess
-from pathlib import Path
 import shutil
 import argparse
+import importlib.util
+from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-# 添加src目录到Python路径
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
+DICT_DIR = os.path.join(DATA_DIR, 'dicts')
+AUDIO_DIR = os.path.join(DATA_DIR, 'audio')
+UPLOADS_DIR = os.path.join(DATA_DIR, 'uploads')
+REQUIREMENTS_FILE = os.path.join(PROJECT_ROOT, 'requirements.txt')
 
-def install_requirements() -> None:
-    """安装依赖"""
-    req_file = Path('requirements.txt')
-    if req_file.exists():
-        result = subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', 'requirements.txt'])
-        if result.returncode != 0:
-            sys.exit(1)
+def install_requirements():
+    print('[init] 安装依赖...')
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', REQUIREMENTS_FILE])
 
-def create_directories() -> None:
-    """创建必要的目录"""
-    directories = [
-        'data/audio',
-        'data/models',
-        'data/uploads',
-        'data/cache',
-        'data/temp',
-        'logs',
-        'docs'
-    ]
-    for directory in directories:
-        path = Path(directory)
-        if not path.exists():
-            path.mkdir(parents=True)
+def setup_essential_dirs():
+    print('[init] 创建必要目录...')
+    os.makedirs(DICT_DIR, exist_ok=True)
+    os.makedirs(AUDIO_DIR, exist_ok=True)
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
 
-def copy_env_file() -> None:
-    """复制环境变量模板文件"""
-    env_example = Path('.env.example')
-    env_file = Path('.env')
-    if not env_file.exists() and env_example.exists():
+def check_dicts():
+    print('[init] 检查情感词典...')
+    required_dicts = ['hownet.json', 'thu.json', 'ntusd.json', 'boson.json']
+    missing = []
+    if not os.path.exists(DICT_DIR):
+        os.makedirs(DICT_DIR, exist_ok=True)
+    for dict_file in required_dicts:
+        dict_path = os.path.join(DICT_DIR, dict_file)
+        if not os.path.exists(dict_path):
+            missing.append(dict_file)
+    if missing:
+        print(f'[WARNING] 缺少以下情感词典文件: {missing}')
+        print(f'请将四个 json 词典文件放置到 {DICT_DIR} 后重试。')
+        # Create empty dict files to avoid errors
+        for dict_file in missing:
+            with open(os.path.join(DICT_DIR, dict_file), 'w', encoding='utf-8') as f:
+                f.write('{}')
+        print('[init] 已创建空词典文件，程序可以继续运行，但情感分析效果可能受影响。')
+    else:
+        print('[init] 情感词典已就绪！')
+
+def copy_env_file():
+    """复制环境变量配置文件"""
+    print('[init] 检查环境变量配置...')
+    env_example = os.path.join(PROJECT_ROOT, '.env.example')
+    env_file = os.path.join(PROJECT_ROOT, '.env')
+    
+    if not os.path.exists(env_file) and os.path.exists(env_example):
         shutil.copy(env_example, env_file)
-    elif not env_example.exists():
-        env_file.write_text('FLASK_ENV=development\nFLASK_DEBUG=1\nSECRET_KEY=your-secret-key\n', encoding='utf-8')
+        print('[init] 已创建 .env 文件')
+    elif not os.path.exists(env_file) and not os.path.exists(env_example):
+        # Create a basic .env file
+        with open(env_file, 'w', encoding='utf-8') as f:
+            f.write('# EmotionSpeak 环境配置\n')
+            f.write('HOST=127.0.0.1\n')
+            f.write('PORT=5000\n')
+            f.write('FLASK_ENV=development\n')
+        print('[init] 已创建基础 .env 文件')
+    else:
+        print('[init] .env 文件已存在')
 
-def download_models() -> None:
-    """下载预训练模型"""
+def download_model():
+    print('[init] 检查情感分析模型...')
+    cache_dir = os.path.join(DATA_DIR, 'models')
+    os.makedirs(cache_dir, exist_ok=True)
+    model_prefix = 'models--IDEA-CCNL--Erlangshen-Roberta-330M-Sentiment'
+    found = False
+    required_files = ['config.json', 'vocab.txt']
+    model_files = ['pytorch_model.bin', 'model.safetensors']
+    for d in os.listdir(cache_dir):
+        if d.startswith(model_prefix):
+            model_dir = os.path.join(cache_dir, d, 'snapshots')
+            # print(f'[DEBUG] 检查目录: {model_dir}')
+            if os.path.exists(model_dir):
+                for snap in os.listdir(model_dir):
+                    snap_dir = os.path.join(model_dir, snap)
+                    # print(f'[DEBUG] 检查快照: {snap_dir}')
+                    files = os.listdir(snap_dir)
+                    # print(f'[DEBUG] 快照文件: {files}')
+                    if all(f in files for f in required_files) and any(f in files for f in model_files):
+                        found = True
+                        break
+    if found:
+        print('[init] 情感分析模型已存在，无需重复下载。')
+        return
+    print('[init] 下载情感分析模型...')
     try:
-        from src.core.sentiment import SentimentAnalyzer
-        from src.core.tts_engine import TTSEngine
-        analyzer = SentimentAnalyzer()
-        tts = TTSEngine()
+        AutoTokenizer.from_pretrained(
+            "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+            cache_dir=cache_dir,
+            local_files_only=False
+        )
+        AutoModelForSequenceClassification.from_pretrained(
+            "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+            cache_dir=cache_dir,
+            local_files_only=False
+        )
+        print('[init] 模型下载完成！')
     except Exception as e:
-        sys.exit(1)
+        print(f'[WARNING] 模型下载失败: {str(e)}')
+        print('[init] 将使用备用模型进行情感分析')
 
-def setup_test_data() -> None:
-    """设置测试数据"""
-    test_data = {
-        'data/sample_texts/positive.txt': '今天天气真好，我很开心！',
-        'data/sample_texts/negative.txt': '今天下雨了，心情不太好。',
-        'data/sample_texts/neutral.txt': '今天是个普通的日子。',
-        'data/sample_texts/mixed.txt': '虽然今天下雨，但我还是很开心。'
-    }
-    for file_path, content in test_data.items():
-        path = Path(file_path)
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding='utf-8')
+def download_models():
+    check_dicts()
+    download_model()
+    print('[init] 资源全部就绪！')
 
-def setup_docs() -> None:
-    """设置文档"""
-    doc_files = {
-        'docs/installation.md': '# 安装指南\n\n## 环境要求\n\n- Python 3.8+\n- pip 20.0+\n- Git\n\n## 安装步骤\n\n1. 克隆项目\n2. 创建虚拟环境\n3. 安装依赖\n4. 配置环境\n5. 初始化项目',
-        'docs/usage.md': '# 使用教程\n\n## 快速开始\n\n1. 启动应用\n2. 访问Web界面\n3. 输入文本\n4. 查看分析结果',
-        'docs/api.md': '# API文档\n\n## 接口说明\n\n### 情感分析\n\n```http\nPOST /api/analyze\n```\n\n### 语音合成\n\n```http\nPOST /api/tts\n```',
-        'docs/development.md': '# 开发指南\n\n## 环境设置\n\n1. 安装开发工具\n2. 配置IDE\n3. 运行测试',
-        'docs/deployment.md': '# 部署指南\n\n## 生产环境\n\n1. 配置服务器\n2. 设置环境变量\n3. 启动应用',
-        'docs/faq.md': '# 常见问题\n\n## 问题解答\n\n1. 如何安装？\n2. 如何使用？\n3. 如何开发？'
-    }
-    for file_path, content in doc_files.items():
-        path = Path(file_path)
-        if not path.exists():
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content, encoding='utf-8')
-
-def init_src_resources():
-    """调用 src/init_resources.py 完成资源下载"""
-    import importlib.util
-    resource_path = Path(__file__).parent / "src" / "init_resources.py"
-    spec = importlib.util.spec_from_file_location("init_resources", resource_path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.init_resources()
-
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(description='EmotionSpeak初始化脚本')
     parser.add_argument('action', choices=['setup', 'download_models', 'all'], help='要执行的操作')
     args = parser.parse_args()
-    if args.action in ['setup', 'all']:
+    if args.action == 'setup':
         install_requirements()
-        create_directories()
         copy_env_file()
-        setup_test_data()
-        setup_docs()
-        init_src_resources()  # 自动下载src下的资源
-    if args.action in ['download_models', 'all']:
-        download_models()
+        setup_essential_dirs()
+    elif args.action == 'download_models':
+        check_dicts()
+        download_model()
+        print('[init] 资源全部就绪！')
+    elif args.action == 'all':
+        install_requirements()
+        setup_essential_dirs()
+        copy_env_file()
+        check_dicts()
+        download_model()
+        print('[init] 所有依赖和资源已准备完毕！')
 
 if __name__ == '__main__':
-    main()
+    main() 

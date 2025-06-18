@@ -8,9 +8,9 @@ import edge_tts
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from .sentiment_analysis import analyze_text_for_tts
 from .sentiment.analyzer import SentimentAnalyzer
 from .sentiment.base import BASIC_EMOTIONS, COMPOUND_EMOTIONS
+from .config import AUDIO_DIR
 
 
 class TTSEngine:
@@ -27,7 +27,7 @@ class TTSEngine:
     
     def __init__(self):
         """Initialize TTS engine"""
-        self.output_dir = 'data/audio'
+        self.output_dir = AUDIO_DIR
         os.makedirs(self.output_dir, exist_ok=True)
     
     async def _synthesize_async(self, text: str, voice: str, output_file: str):
@@ -105,12 +105,8 @@ class TTSEngine:
                 asyncio.run(self._synthesize_async_with_params(text, voice, output_file, pitch, rate, style))
             except Exception as e:
                 raise RuntimeError(f"TTS合成失败: {str(e)}")
-            # 合成后自动删除音频文件
-            try:
-                if os.path.exists(output_file):
-                    os.remove(output_file)
-            except Exception:
-                pass
+            
+            # 不再删除生成的音频文件
             return output_file
         except Exception as e:
             raise

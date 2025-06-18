@@ -16,7 +16,7 @@ if sys.platform.startswith('win'):
     locale.setlocale(locale.LC_ALL, 'zh_CN.UTF-8')
 
 # 将 src 加入模块搜索路径
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
 
 def main():
     """主程序入口"""

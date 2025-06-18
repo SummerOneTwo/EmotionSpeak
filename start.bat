@@ -2,31 +2,46 @@
 chcp 65001
 setlocal enabledelayedexpansion
 
-:: 检查虚拟环境
+echo [1/6] 开始执行脚本...
+
+echo 检查虚拟环境...
 if not exist "venv" (
-    echo Creating virtual environment...
+    echo [2/6] 创建虚拟环境...
     python -m venv venv
+) else (
+    echo [2/6] 虚拟环境已存在
 )
 
-:: 检查 C++ 编译器
-cl -help >nul 2>nul
-if errorlevel 1 (
-    echo Installing Microsoft C++ Build Tools...
+echo 检查 C++ 编译器...
+cl >nul 2>nul
+if %errorlevel% equ 0 (
+    echo [3/6] C++ 编译器检查通过
+) else (
+    echo [3/6] 未找到 C++ 编译器，开始安装...
+    echo 正在下载安装程序...
     powershell -Command "Start-Process 'https://aka.ms/vs/17/release/vs_BuildTools.exe' -ArgumentList '/quiet', '/norestart', '--add', 'Microsoft.VisualStudio.Workload.VCTools' -Wait"
     echo 请手动完成 C++ Build Tools 安装后，重新运行本脚本。
     pause
-    exit /b
+    exit /b 1
 )
 
-:: 激活虚拟环境
+echo 激活虚拟环境...
 call venv\Scripts\activate.bat
+if %errorlevel% neq 0 (
+    echo 虚拟环境激活失败！
+    pause
+    exit /b 1
+)
 
-:: 初始化项目环境（依赖安装、目录、.env等）
-echo Initializing project...
-python init.py setup
+echo 初始化项目环境...
+python init.py all
+if %errorlevel% neq 0 (
+    echo 项目初始化失败！
+    pause
+    exit /b 1
+)
 
-:: 启动应用
-echo Starting application...
+echo 启动应用...
 start http://localhost:5000
 python main.py
 

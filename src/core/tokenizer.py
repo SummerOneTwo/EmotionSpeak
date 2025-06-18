@@ -3,14 +3,19 @@ from typing import List, Dict
 import jieba_fast as jieba
 import jieba_fast.posseg as pseg
 import os
+from .sentiment.dict_loader import EmotionDictLoader
+from .config import STOPWORDS_PATH
 
 class ChineseTokenizer:
     """中文分词器"""
     
     def __init__(self):
         """初始化分词器，自动加载自定义词典和停用词表（如存在）"""
+        # 优先加载全局 data/stopwords.txt
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        global_stopwords = os.path.join(project_root, 'data', 'stopwords.txt')
         dict_path = os.path.join(os.path.dirname(__file__), 'data', 'jieba_dict.txt')
-        stopwords_path = os.path.join(os.path.dirname(__file__), 'data', 'stopwords.txt')
+        stopwords_path = global_stopwords if os.path.exists(global_stopwords) else STOPWORDS_PATH
         # 加载自定义词典
         if os.path.exists(dict_path):
             jieba.load_userdict(dict_path)
@@ -51,4 +56,22 @@ class ChineseTokenizer:
         Args:
             dict_path: 词典文件路径
         """
-        jieba.load_userdict(dict_path) 
+        jieba.load_userdict(dict_path)
+
+class EmotionTokenizer(ChineseTokenizer):
+    """情感分析分词器，联动当前情感词典"""
+    def __init__(self):
+        super().__init__()
+        self.dict_loader = EmotionDictLoader()
+
+    def get_emotion_words(self, text: str):
+        words = self.get_words(text)
+        result = []
+        for word in words:
+            emotions = self.dict_loader.get_word_emotion(word)
+            if emotions:
+                result.append((word, emotions))
+        return result
+
+    def get_word_emotion(self, word: str):
+        return self.dict_loader.get_word_emotion(word) 

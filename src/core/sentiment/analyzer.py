@@ -4,8 +4,9 @@ import os
 from typing import Dict, List, Optional, Union
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, BertTokenizer, BertForSequenceClassification
 from .base import BASIC_EMOTIONS, COMPOUND_EMOTIONS, INTENSITY_MODIFIERS
-from ..tokenizer import ChineseTokenizer
-from .tokenizer import EmotionTokenizer
+from ..tokenizer import ChineseTokenizer, EmotionTokenizer
+import traceback
+from ..config import MODELS_DIR
 
 # 全局模型缓存
 _MODEL_CACHE = {
@@ -23,6 +24,11 @@ class SentimentAnalyzer:
         self.model = None
         self.word_tokenizer = None
         self.tokenizer = EmotionTokenizer()
+        # 自动初始化
+        try:
+            self._initialize()
+        except Exception as e:
+            print(f"初始化警告: {str(e)}")
         
     def _initialize(self):
         """初始化模型"""
@@ -35,22 +41,43 @@ class SentimentAnalyzer:
             if not _MODEL_CACHE['is_initialized']:
                 print("正在加载情感分析模型...")
                 # 设置模型缓存目录
-                cache_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'models')
+                cache_dir = MODELS_DIR
                 os.makedirs(cache_dir, exist_ok=True)
                 
-                # 初始化BERT模型 - 使用最新的Erlangshen模型
-                _MODEL_CACHE['tokenizer'] = AutoTokenizer.from_pretrained(
-                    "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
-                    local_files_only=False,  # 允许从网络下载
-                    cache_dir=cache_dir     # 使用绝对路径
-                )
-                _MODEL_CACHE['model'] = AutoModelForSequenceClassification.from_pretrained(
-                    "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
-                    local_files_only=False,
-                    cache_dir=cache_dir
-                )
-                _MODEL_CACHE['is_initialized'] = True
-                print("模型加载完成！")
+                try:
+                    # 先尝试从本地加载
+                    _MODEL_CACHE['tokenizer'] = AutoTokenizer.from_pretrained(
+                        "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+                        local_files_only=True,  # 只用本地
+                        cache_dir=cache_dir
+                    )
+                    _MODEL_CACHE['model'] = AutoModelForSequenceClassification.from_pretrained(
+                        "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+                        local_files_only=True,
+                        cache_dir=cache_dir
+                    )
+                    _MODEL_CACHE['is_initialized'] = True
+                    print("模型从本地加载完成！")
+                except Exception as e:
+                    print(f"本地模型加载失败，正在尝试从网络下载: {str(e)}")
+                    try:
+                        # 如果本地加载失败，尝试从网络下载
+                        _MODEL_CACHE['tokenizer'] = AutoTokenizer.from_pretrained(
+                            "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+                            local_files_only=False,
+                            cache_dir=cache_dir
+                        )
+                        _MODEL_CACHE['model'] = AutoModelForSequenceClassification.from_pretrained(
+                            "IDEA-CCNL/Erlangshen-Roberta-330M-Sentiment",
+                            local_files_only=False,
+                            cache_dir=cache_dir
+                        )
+                        _MODEL_CACHE['is_initialized'] = True
+                        print("模型从网络下载完成！")
+                    except Exception as download_error:
+                        print(f"模型下载失败: {str(download_error)}")
+                        print("使用基础规则进行情感分析")
+                        _MODEL_CACHE['is_initialized'] = True
             
             # 初始化分词器
             self.word_tokenizer = ChineseTokenizer()
@@ -58,6 +85,7 @@ class SentimentAnalyzer:
             
         except Exception as e:
             print(f"模型加载失败: {str(e)}")
+            traceback.print_exc()
             self._cleanup()  # 清理资源
             raise RuntimeError(f"情感分析器初始化失败: {str(e)}")
     
@@ -86,10 +114,14 @@ class SentimentAnalyzer:
         if not text or not isinstance(text, str):
             raise ValueError("输入文本不能为空且必须是字符串类型")
             
-        if not self._is_initialized or not _MODEL_CACHE['is_initialized']:
-            raise RuntimeError("情感分析器未正确初始化，请检查模型加载状态")
-            
         try:
+            if not self._is_initialized:
+                self._initialize()
+                
+            # 如果模型仍未初始化成功，则使用规则分析
+            if not _MODEL_CACHE['is_initialized'] or _MODEL_CACHE['model'] is None:
+                return self._rule_based_analysis(text)
+                
             # 使用BERT分析基础情感
             inputs = _MODEL_CACHE['tokenizer'](text, return_tensors="pt", truncation=True, max_length=512)
             with torch.no_grad():
@@ -121,15 +153,98 @@ class SentimentAnalyzer:
                         'score': scores[1].item()
                     },
                     'compound_emotions': compound_emotions,
-                    'keywords': emotion_keywords
+                    'keywords': emotion_keywords,
+                    'emotion_scores': {
+                        '正面': scores[1].item(),
+                        '负面': scores[0].item()
+                    }
                 },
                 'intensity': intensity,
-                'words': words_info
+                'words': words_info,
+                'context': {
+                    'context_type': '',
+                    'keywords': [{'text': w['word']} for w in words_info] if words_info else []
+                },
+                'voice': {
+                    'pitch': 1.0,
+                    'speed': 1.0,
+                    'volume': 1.0,
+                    'style': ''
+                }
             }
             
         except Exception as e:
             print(f"情感分析失败: {str(e)}")
-            return self._get_error_result(text, str(e))
+            return self._rule_based_analysis(text)
+    
+    def _rule_based_analysis(self, text: str) -> Dict:
+        """使用规则进行简单情感分析
+        
+        Args:
+            text: 输入文本
+            
+        Returns:
+            Dict: 情感分析结果
+        """
+        # 创建分词器（如果还没有）
+        if self.word_tokenizer is None:
+            self.word_tokenizer = ChineseTokenizer()
+            
+        # 使用规则进行情感分析
+        positive_keywords = ['喜欢', '开心', '高兴', '快乐', '兴奋', '棒', '好', '优秀', '成功', '爱']
+        negative_keywords = ['讨厌', '难过', '伤心', '悲伤', '失望', '糟糕', '差', '不好', '失败', '恨']
+        
+        positive_count = sum(1 for word in positive_keywords if word in text)
+        negative_count = sum(1 for word in negative_keywords if word in text)
+        
+        # 判断情感倾向
+        if positive_count > negative_count:
+            emotion_label = '正面'
+            confidence = min(0.6 + 0.1 * positive_count, 0.9)
+            score = confidence
+        elif negative_count > positive_count:
+            emotion_label = '负面'
+            confidence = min(0.6 + 0.1 * negative_count, 0.9)
+            score = 1 - confidence
+        else:
+            emotion_label = '中性'
+            confidence = 0.5
+            score = 0.5
+            
+        # 分析情感强度
+        intensity = self._analyze_intensity(text)
+        
+        # 分词
+        words_info = self.word_tokenizer.tokenize(text)
+            
+        return {
+            'text': text,
+            'emotion': {
+                'base_emotion': {
+                    'label': emotion_label,
+                    'confidence': confidence,
+                    'score': score
+                },
+                'compound_emotions': [],
+                'keywords': {},
+                'emotion_scores': {
+                    '正面': confidence if emotion_label == '正面' else 1 - confidence,
+                    '负面': 1 - confidence if emotion_label == '正面' else confidence
+                }
+            },
+            'intensity': intensity,
+            'words': words_info,
+            'context': {
+                'context_type': '',
+                'keywords': [{'text': w['word']} for w in words_info] if words_info else []
+            },
+            'voice': {
+                'pitch': 1.0,
+                'speed': 1.0,
+                'volume': 1.0,
+                'style': ''
+            }
+        }
     
     def _get_error_result(self, text: str, error_msg: str) -> Dict:
         """获取错误情况下的默认结果
@@ -151,14 +266,28 @@ class SentimentAnalyzer:
                     'score': 0.0
                 },
                 'compound_emotions': [],
-                'keywords': {}
+                'keywords': {},
+                'emotion_scores': {
+                    '正面': 0.0,
+                    '负面': 0.0
+                }
             },
             'intensity': {
                 'intensity_score': 1.0,
                 'modifiers': [],
                 'has_repetition': False
             },
-            'words': []
+            'words': [],
+            'context': {
+                'context_type': '',
+                'keywords': []
+            },
+            'voice': {
+                'pitch': 1.0,
+                'speed': 1.0,
+                'volume': 1.0,
+                'style': ''
+            }
         }
     
     def _analyze_intensity(self, text: str) -> Dict:
@@ -247,7 +376,7 @@ class SentimentAnalyzer:
             text: 输入文本
             
         Returns:
-            Dict[str, List[str]]: 情感关键词映射
+            Dict[str, List[str]]: 情感关键词列表
         """
         try:
             emotion_keywords = {}
@@ -321,18 +450,12 @@ class SentimentAnalyzer:
         Returns:
             float: 情感强度分数
         """
-        # 获取情感词
         emotion_words = self.tokenizer.get_emotion_words(text)
         if not emotion_words:
             return 0.0
-            
-        # 计算情感强度
         intensity = 0.0
-        for word, _ in emotion_words:
-            word_emotions = self.tokenizer.get_word_emotion(word)
-            intensity += sum(word_emotions.values())
-            
-        # 归一化强度
+        for word, emotions in emotion_words:
+            intensity += sum(emotions.values())
         return min(1.0, intensity / len(emotion_words))
     
     def analyze_keywords(self, text: str) -> List[Dict[str, Union[str, float]]]:
@@ -344,24 +467,18 @@ class SentimentAnalyzer:
         Returns:
             List[Dict[str, Union[str, float]]]: 情感关键词列表
         """
-        # 获取情感词
         emotion_words = self.tokenizer.get_emotion_words(text)
         if not emotion_words:
             return []
-            
-        # 计算每个词的情感分数
         keywords = []
-        for word, emotion in emotion_words:
-            word_emotions = self.tokenizer.get_word_emotion(word)
-            if word_emotions:
-                max_emotion = max(word_emotions.items(), key=lambda x: x[1])
+        for word, emotions in emotion_words:
+            if emotions:
+                max_emotion = max(emotions.items(), key=lambda x: x[1])
                 keywords.append({
                     'word': word,
                     'emotion': max_emotion[0],
                     'score': max_emotion[1]
                 })
-                
-        # 按分数排序
         keywords.sort(key=lambda x: x['score'], reverse=True)
         return keywords
     

@@ -11,6 +11,7 @@ from .config import config
 from .routes import register_routes
 from ..core.sentiment import SentimentAnalyzer
 from ..core.tts_engine import TTSEngine
+from ..core.config import AUDIO_DIR
 
 # 加载环境变量
 load_dotenv()
@@ -61,8 +62,7 @@ def create_app(config_name: str = 'default') -> Flask:
     @app.route('/audio/<path:filename>')
     def serve_audio(filename):
         """提供音频文件"""
-        audio_dir = os.path.join(os.getcwd(), 'data', 'audio')
-        return send_from_directory(audio_dir, filename)
+        return send_from_directory(AUDIO_DIR, filename)
     
     @app.route('/health')
     def health_check():

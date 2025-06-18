@@ -3,7 +3,7 @@ EmotionSpeak 核心模块
 提供情感分析和语音合成功能
 """
 
-from .sentiment_analysis import SentimentAnalyzer
+from .sentiment.analyzer import SentimentAnalyzer
 from .tts_engine import TTSEngine
 
 # 可选导入音频播放器（如果pygame可用）

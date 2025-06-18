@@ -93,7 +93,7 @@ document.addEventListener('DOMContentLoaded', function() {
             showLoading();
             
             // 发送分析请求
-            const response = await fetch('/analyze', {
+            const response = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -108,13 +108,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // 显示分析结果
-            displayResults(data);
+            displayResults(data.result);
             
             // 更新情感分布图表
-            updateEmotionsChart(data.emotion.emotion_scores);
+            updateEmotionsChart(data.result.emotion.emotion_scores);
             
             // 更新词云图
-            updateWordcloud(data.context.keywords);
+            updateWordcloud(data.result.context.keywords);
             
         } catch (error) {
             showError(error.message);
@@ -277,7 +277,7 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             showLoading();
             
-            const response = await fetch('/tts', {
+            const response = await fetch('/api/tts', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

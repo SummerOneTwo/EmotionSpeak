@@ -5,6 +5,8 @@ API路由
 
 from flask import Blueprint, request, jsonify, send_file
 from ...core import SentimentAnalyzer, TTSEngine
+from ...core.config import AUDIO_DIR
+import os
 
 # 创建蓝图
 api_bp = Blueprint('api', __name__)
@@ -38,7 +40,7 @@ def tts():
 
 @api_bp.route('/audio/<filename>')
 def get_audio(filename):
-    return send_file(f'data/audio/{filename}')
+    return send_file(os.path.join(AUDIO_DIR, filename))
 
 @api_bp.route('/voices')
 def get_voices():
