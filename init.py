@@ -4,7 +4,6 @@ import subprocess
 import shutil
 import argparse
 import importlib.util
-from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(PROJECT_ROOT, 'data')
@@ -66,6 +65,12 @@ def copy_env_file():
 
 def download_model():
     print('[init] 检查情感分析模型...')
+    try:
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    except ImportError:
+        print('[init] 未检测到 transformers，正在安装依赖...')
+        install_requirements()
+        from transformers import AutoTokenizer, AutoModelForSequenceClassification
     cache_dir = os.path.join(DATA_DIR, 'models')
     os.makedirs(cache_dir, exist_ok=True)
     model_prefix = 'models--IDEA-CCNL--Erlangshen-Roberta-330M-Sentiment'
